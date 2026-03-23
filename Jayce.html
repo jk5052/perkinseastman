@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jayce Kim | Portfolio</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            width: 100vw; height: 100vh; overflow: hidden;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            cursor: none; background: #000;
+        }
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        .ui-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        .header { position: absolute; top: 8%; left: 50%; transform: translateX(-50%); text-align: center; }
+        .header h1 { font-size: 1.3rem; font-weight: 300; letter-spacing: 0.55em; text-transform: uppercase; color: #f8f8f8; margin-bottom: 10px; }
+        .header .subtitle { font-size: 0.58rem; letter-spacing: 0.48em; text-transform: uppercase; color: #f8f8f8; opacity: 0.38; }
+        .cursor-ring {
+            position: fixed; width: 26px; height: 26px;
+            border: 1px solid rgba(248,248,248,0.5); border-radius: 50%;
+            pointer-events: none; transform: translate(-50%,-50%); z-index: 1000;
+            transition: border-color 0.22s ease, background 0.22s ease;
+        }
+        .cursor-ring.hover { border-color: #FE4E02; background: rgba(254,78,2,0.12); }
+        .cursor-dot {
+            position: fixed; width: 3px; height: 3px; background: #f8f8f8; border-radius: 50%;
+            pointer-events: none; transform: translate(-50%,-50%); z-index: 1001; transition: background 0.2s ease;
+        }
+        .cursor-dot.hover { background: #FE4E02; }
+        .tooltip {
+            position: fixed; color: #f8f8f8;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 0.58rem; font-weight: 300; letter-spacing: 0.28em; text-transform: uppercase;
+            pointer-events: none; opacity: 0; transition: opacity 0.3s ease; z-index: 100;
+        }
+        .tooltip.visible { opacity: 1; }
+        .art-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 500; opacity: 0; visibility: hidden;
+            transition: opacity 0.5s ease, visibility 0.5s ease; overflow-y: auto; cursor: auto;
+        }
+        .art-modal.visible { opacity: 1; visibility: visible; }
+        .art-modal-content { max-width: 780px; margin: 0 auto; padding: 100px 60px 90px; }
+        .art-modal-close {
+            position: fixed; top: 32px; right: 44px;
+            font-size: 0.62rem; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-weight: 300; letter-spacing: 0.2em; text-transform: uppercase;
+            color: rgba(248,248,248,0.38); cursor: pointer; z-index: 501; transition: color 0.3s ease;
+        }
+        .art-modal-close:hover { color: #FE4E02; }
+        .art-modal-title {
+            color: #f8f8f8; font-size: 0.62rem; font-weight: 300;
+            letter-spacing: 0.55em; text-transform: uppercase;
+            margin-bottom: 65px; padding-bottom: 20px; border-bottom: 1px solid #FE4E02; opacity: 0.85;
+        }
+        .art-item { margin-bottom: 88px; }
+        .art-item img, .art-item video { width: 100%; height: auto; display: block; margin-bottom: 26px; }
+        .art-item-title { color: #f8f8f8; font-size: 0.68rem; font-weight: 400; letter-spacing: 0.35em; text-transform: uppercase; margin-bottom: 15px; }
+        .art-item-title::after { content: ''; display: block; width: 16px; height: 1px; background: #FE4E02; margin-top: 11px; }
+        .art-item-desc { color: rgba(248,248,248,0.45); font-size: 0.84rem; font-weight: 300; line-height: 1.95; letter-spacing: 0.01em; }
+
+        /* ── Floating bio text ── */
+        .float-bio {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 520px;
+            pointer-events: none;
+            z-index: 2;
+            animation: bioDrift 14s ease-in-out infinite;
+        }
+        .float-bio p {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 0.72rem; font-weight: 200;
+            color: #f8f8f8;
+            letter-spacing: 0.06em; line-height: 2.1;
+            text-align: center;
+            opacity: 0.22;
+        }
+        @keyframes bioDrift {
+            0%   { transform: translate(-50%, calc(-50% + 0px));   opacity: 1; }
+            50%  { transform: translate(-50%, calc(-50% - 18px));  opacity: 1; }
+            100% { transform: translate(-50%, calc(-50% + 0px));   opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="float-bio"><p>Hello, I'm Jayce. My work explores how spatial environments shape human emotion, perception, and collective experience. I believe design can move beyond functionality to reveal unconscious patterns of behavior and expand emotional awareness. Through interactive and sensory systems, I investigate how environments actively influence how people feel and make decisions, combining design research, environmental psychology, and computational tools to create systems that are both analytical and experiential. Rather than producing static objects, I design dynamic environments that enable individuals to recognize and reflect on their emotional states and relationships to space.</p></div>
+    <div class="ui-overlay">
+        <div class="header">
+            <h1>Jayce Kim</h1>
+            <p class="subtitle">Design Portfolio</p>
+        </div>
+    </div>
+
+    <div class="art-modal" id="artModal">
+        <div class="art-modal-close" id="artModalClose">Close</div>
+        <div class="art-modal-content">
+            <h2 class="art-modal-title">Art</h2>
+            <div class="art-item">
+                <img src="pic/Wishes.jpg" alt="Wishes">
+                <h3 class="art-item-title">Wishes</h3>
+                <p class="art-item-desc">Inspired by gun-related tragedies, this piece imagines a world where firearms become harmless—combining the imagery of bullets falling to the ground with the ritual of lighting candles as a collective prayer for peace.</p>
+            </div>
+            <div class="art-item">
+                <img src="pic/Misty.jpg" alt="Misty">
+                <h3 class="art-item-title">Misty</h3>
+                <p class="art-item-desc">This piece invites viewers to walk into the fog toward an elusive light, exploring how perfect communication may be impossible yet encouraging us to recognize each person as a unique world and look at one another without judgment.</p>
+            </div>
+            <div class="art-item">
+                <img src="pic/Empower.jpg" alt="Empower">
+                <h3 class="art-item-title">Empower</h3>
+                <p class="art-item-desc">This piece examines how modern individuals unknowingly diminish themselves, prompting reflection on what it truly takes to reclaim one's self-esteem.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="art-modal" id="installationModal">
+        <div class="art-modal-close" id="installationModalClose">Close</div>
+        <div class="art-modal-content">
+            <h2 class="art-modal-title">Interactive Installation</h2>
+            <div class="art-item">
+                <img src="pic/Tension_of_Society.jpg" alt="Tension of Society">
+                <h3 class="art-item-title">Tension of Society</h3>
+                <p class="art-item-desc">This installation explores emotional memory—how the brain ties experiences to emotions through the connection between the hippocampus and amygdala. Using sound as a trigger for recall, the piece plays audio from Korean social tragedies such as the Sewol ferry sinking and the Daegu subway fire. As viewers listen with limited vision, a heartbeat sensor tracks their physiological response; when their heart rate crosses a threshold, the cube illuminates LED strips, creating a cumulative visual record of collective emotional resonance.</p>
+            </div>
+            <div class="art-item">
+                <img src="pic/Eternal_Promise.jpg" alt="Eternal Promise">
+                <h3 class="art-item-title">Eternal Promise</h3>
+                <p class="art-item-desc">Using sensor technology, this interactive installation dissolves video imagery into particle-like atoms as viewers approach, then returns to scenes of nature when they step away—evoking the eternal cycle of matter in the universe. The piece reflects on how our loved ones, though no longer in their original form, continue to exist as atoms woven into the air we breathe, the trees we see, and the stars above, offering comfort that the bonds we share are never truly broken and that love persists beyond physical existence.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="art-modal" id="techModal">
+        <div class="art-modal-close" id="techModalClose">Close</div>
+        <div class="art-modal-content">
+            <h2 class="art-modal-title">Technology</h2>
+            <div class="art-item">
+                <img src="pic/I_in_You.jpg" alt="I in You">
+                <h3 class="art-item-title">I in You</h3>
+                <p class="art-item-desc">This piece captures the moment when observation and being observed dissolve the boundaries between self and other. It reflects on how we are constantly shaped by the people we meet and experiences we encounter—absorbing diverse perspectives, values, and behaviors over time. The work invites us to see the self not as fixed, but as a fluid composite formed within a dynamic network of relationships, loves, and shared experiences.</p>
+            </div>
+            <div class="art-item">
+                <video src="pic/Breath_Spirit.mp4" controls playsinline></video>
+                <h3 class="art-item-title">Breath Spirit</h3>
+                <p class="art-item-desc">Breath Spirit helps you build healthy breathing habits through guided pattern training, personalized meditation reminders, and progress tracking. By analyzing your breathing data, it predicts health trends and offers tailored recommendations—helping you reflect on your progress and develop a sustainable practice uniquely suited to you.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="cursor-ring" id="cursorRing"></div>
+    <div class="cursor-dot"  id="cursorDot"></div>
+    <div class="tooltip"     id="tooltip"></div>
+
+    <script>
+// ── Three.js star / planet scene ─────────────────────────────────────────────
+let scene, camera, renderer, raycaster, mouse;
+let mainOrbs = [], decoOrbs = [], hoveredOrb = null;
+
+const cursorRing = document.getElementById('cursorRing');
+const cursorDot  = document.getElementById('cursorDot');
+const tooltip    = document.getElementById('tooltip');
+let mX = innerWidth/2, mY = innerHeight/2;
+let rX = mX, rY = mY, dX = mX, dY = mY;
+
+const COL_ORANGE = new THREE.Color(0xFE4E02);
+
+const projects = [
+    { name:'Art',                      id:'art'                      },
+    { name:'Interactive Installation', id:'interactive-installation'  },
+    { name:'Technology',               id:'technology'                }
+];
+
+// Per-particle twinkle shader
+const VERT = `
+attribute float aSize;
+attribute float aPhase;
+uniform   float uTime;
+varying   float vAlpha;
+void main(){
+    vAlpha = 0.3 + 0.7 * abs(sin(uTime * 1.1 + aPhase));
+    vec4 mv = modelViewMatrix * vec4(position,1.0);
+    gl_PointSize = aSize * (260.0 / -mv.z);
+    gl_Position  = projectionMatrix * mv;
+}`;
+const FRAG = `
+varying float vAlpha;
+void main(){
+    vec2 uv = gl_PointCoord - 0.5;
+    float d  = length(uv);
+    if(d > 0.5) discard;
+    float a = smoothstep(0.5,0.05,d) * vAlpha;
+    gl_FragColor = vec4(0.97,0.97,0.97,a);
+}`;
+
+init(); animate();
+
+function init(){
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+    camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 200);
+    camera.position.set(0, 0, 18);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    raycaster = new THREE.Raycaster();
+    mouse = new THREE.Vector2();
+
+    scene.add(new THREE.AmbientLight(0x111111, 1));
+
+    buildStarField();
+    buildDecoOrbs();
+    buildMainOrbs();
+
+    window.addEventListener('resize',    onResize);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('click',     onClick);
+}
+
+// Background star field — shader, per-particle twinkle
+function buildStarField(){
+    const N = 1800;
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(N*3), sz = new Float32Array(N), ph = new Float32Array(N);
+    for(let i=0;i<N;i++){
+        pos[i*3]   = (Math.random()-0.5)*130;
+        pos[i*3+1] = (Math.random()-0.5)*80;
+        pos[i*3+2] = -12 - Math.random()*45;
+        sz[i]  = 0.4 + Math.random()*1.7;
+        ph[i]  = Math.random()*Math.PI*2;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+    geo.setAttribute('aSize',    new THREE.BufferAttribute(sz,1));
+    geo.setAttribute('aPhase',   new THREE.BufferAttribute(ph,1));
+    const mat = new THREE.ShaderMaterial({
+        vertexShader: VERT, fragmentShader: FRAG,
+        uniforms: { uTime:{ value:0 } },
+        transparent:true, depthWrite:false,
+        blending: THREE.AdditiveBlending
+    });
+    const pts = new THREE.Points(geo, mat);
+    pts.userData.isBg = true;
+    scene.add(pts);
+}
+
+// Layered additive glow orb helper
+function makeOrb(r, coreOp, emStr){
+    const g = new THREE.Group();
+    [{s:1.0,op:coreOp,em:emStr},{s:1.7,op:0.13,em:0},{s:3.0,op:0.05,em:0},{s:5.5,op:0.016,em:0}]
+    .forEach((l,i)=>{
+        const mesh = new THREE.Mesh(
+            new THREE.SphereGeometry(r*l.s, i===0?32:16, i===0?32:16),
+            new THREE.MeshStandardMaterial({
+                color: COL_ORANGE, emissive: COL_ORANGE,
+                emissiveIntensity: l.em, transparent:true, opacity: l.op,
+                depthWrite:false, blending: THREE.AdditiveBlending
+            })
+        );
+        mesh.userData.li = i; mesh.userData.bo = l.op; mesh.userData.be = l.em;
+        g.add(mesh);
+    });
+    g.add(new THREE.PointLight(0xFE4E02, 1.2, 10, 2));
+    return g;
+}
+
+// Decorative background orbs
+function buildDecoOrbs(){
+    [
+        {p:[-8.5, 3.2,-4], r:0.22,spd:0.55,amp:0.22,ph:0.4},
+        {p:[ 7.5,-2.2,-3], r:0.16,spd:0.70,amp:0.18,ph:1.1},
+        {p:[-5.0,-3.5,-2], r:0.19,spd:0.60,amp:0.28,ph:2.0},
+        {p:[ 6.2, 4.1,-5], r:0.28,spd:0.45,amp:0.32,ph:0.7},
+        {p:[ 0.3, 5.5,-6], r:0.13,spd:0.85,amp:0.20,ph:1.6},
+        {p:[-9.0,-1.2,-5], r:0.18,spd:0.62,amp:0.26,ph:3.1},
+        {p:[ 9.2, 1.4,-4], r:0.14,spd:0.78,amp:0.22,ph:0.5},
+        {p:[-3.2, 5.8,-4], r:0.11,spd:1.05,amp:0.14,ph:2.4},
+        {p:[ 3.8,-4.8,-3], r:0.13,spd:0.88,amp:0.19,ph:0.9},
+        {p:[-6.5, 0.8,-1], r:0.09,spd:1.15,amp:0.12,ph:3.7},
+        {p:[ 4.5, 3.2,-2], r:0.11,spd:0.92,amp:0.17,ph:2.1},
+        {p:[-2.0,-5.2,-4], r:0.16,spd:0.68,amp:0.23,ph:0.6},
+        {p:[ 8.5,-3.8,-5], r:0.20,spd:0.52,amp:0.30,ph:1.3},
+        {p:[-7.5,-4.5,-6], r:0.25,spd:0.46,amp:0.34,ph:2.7},
+        {p:[ 2.5, 6.2,-7], r:0.18,spd:0.58,amp:0.28,ph:0.2}
+    ].forEach(c=>{
+        const orb = makeOrb(c.r, 0.6, 0.3);
+        orb.position.set(...c.p);
+        orb.userData = { isClickable:false, baseY:c.p[1], floatSpeed:c.spd, floatAmp:c.amp, floatPhase:c.ph };
+        scene.add(orb); decoOrbs.push(orb);
+    });
+}
+
+// 3 main clickable planet orbs
+function buildMainOrbs(){
+    [
+        {p:[-4.5, 0.6, 2.5], r:0.90, pi:0, spd:0.52, amp:0.22, ph:0.0},
+        {p:[ 1.5, 1.8, 1.5], r:1.05, pi:1, spd:0.47, amp:0.28, ph:1.4},
+        {p:[ 5.5,-1.0, 2.5], r:0.85, pi:2, spd:0.56, amp:0.20, ph:2.8}
+    ].forEach(c=>{
+        const orb = makeOrb(c.r, 0.92, 0.55);
+        orb.position.set(...c.p);
+        orb.userData = {
+            isClickable: true,
+            projectIndex: c.pi,
+            projectName:  projects[c.pi].name,
+            projectId:    projects[c.pi].id,
+            baseY: c.p[1], floatSpeed: c.spd, floatAmp: c.amp, floatPhase: c.ph
+        };
+        scene.add(orb); mainOrbs.push(orb);
+    });
+}
+
+// Events
+function onResize(){
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+}
+function onMouseMove(e){
+    mX = e.clientX; mY = e.clientY;
+    mouse.x =  (e.clientX/innerWidth )*2-1;
+    mouse.y = -(e.clientY/innerHeight)*2+1;
+}
+
+const artModal          = document.getElementById('artModal');
+const installationModal = document.getElementById('installationModal');
+const techModal         = document.getElementById('techModal');
+function closeModal(el){ el.classList.remove('visible'); }
+document.getElementById('artModalClose').onclick          = ()=>closeModal(artModal);
+document.getElementById('installationModalClose').onclick = ()=>closeModal(installationModal);
+document.getElementById('techModalClose').onclick         = ()=>closeModal(techModal);
+artModal.addEventListener('click',          e=>{ if(e.target===artModal)          closeModal(artModal); });
+installationModal.addEventListener('click', e=>{ if(e.target===installationModal) closeModal(installationModal); });
+techModal.addEventListener('click',         e=>{ if(e.target===techModal)         closeModal(techModal); });
+
+function onClick(){
+    if(!hoveredOrb || !hoveredOrb.userData.isClickable) return;
+    const id = hoveredOrb.userData.projectId;
+    if(id==='art')                       artModal.classList.add('visible');
+    else if(id==='interactive-installation') installationModal.classList.add('visible');
+    else if(id==='technology')           techModal.classList.add('visible');
+}
+
+// Cursor
+function updateCursor(){
+    rX += (mX-rX)*0.09; rY += (mY-rY)*0.09;
+    cursorRing.style.left = rX+'px'; cursorRing.style.top = rY+'px';
+    dX += (mX-dX)*0.55; dY += (mY-dY)*0.55;
+    cursorDot.style.left  = dX+'px'; cursorDot.style.top  = dY+'px';
+}
+
+// Main loop
+function animate(){
+    requestAnimationFrame(animate);
+    const t = performance.now()*0.001;
+
+    scene.traverse(o=>{ if(o.isPoints && o.userData.isBg) o.material.uniforms.uTime.value = t; });
+
+    mainOrbs.forEach(orb=>{
+        const {baseY,floatSpeed,floatAmp,floatPhase} = orb.userData;
+        orb.position.y = baseY + Math.sin(t*floatSpeed+floatPhase)*floatAmp;
+        const pulse = Math.sin(t*floatSpeed*1.8+floatPhase);
+        orb.children.forEach(ch=>{
+            if(!ch.isMesh) return;
+            const {li,bo,be} = ch.userData;
+            if(li===0){ ch.material.emissiveIntensity = be + pulse*0.28; ch.material.opacity = bo + pulse*0.06; }
+            else       { ch.material.opacity = Math.max(0, bo + pulse*0.012*(4-li)); }
+        });
+    });
+
+    decoOrbs.forEach(orb=>{
+        const {baseY,floatSpeed,floatAmp,floatPhase} = orb.userData;
+        orb.position.y = baseY + Math.sin(t*floatSpeed+floatPhase)*floatAmp;
+        const tw = Math.sin(t*floatSpeed*2.2+floatPhase);
+        orb.children.forEach(ch=>{
+            if(!ch.isMesh) return;
+            const {li,bo} = ch.userData;
+            ch.material.opacity = Math.max(0, li===0 ? bo + tw*0.32 : bo + tw*0.018);
+        });
+    });
+
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(mainOrbs, true);
+
+    if(hoveredOrb){
+        hoveredOrb.scale.set(1,1,1);
+        cursorRing.classList.remove('hover');
+        cursorDot.classList.remove('hover');
+        tooltip.classList.remove('visible');
+        hoveredOrb = null;
+    }
+    if(hits.length>0){
+        let obj = hits[0].object;
+        while(obj.parent && !obj.userData.isClickable) obj = obj.parent;
+        if(obj.userData.isClickable){
+            hoveredOrb = obj;
+            hoveredOrb.scale.set(1.1,1.1,1.1);
+            cursorRing.classList.add('hover');
+            cursorDot.classList.add('hover');
+            tooltip.textContent = hoveredOrb.userData.projectName;
+            tooltip.style.left  = (mX+22)+'px';
+            tooltip.style.top   = (mY-8)+'px';
+            tooltip.classList.add('visible');
+        }
+    }
+
+    updateCursor();
+    renderer.render(scene, camera);
+}
+</script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            width: 100vw; height: 100vh; overflow: hidden;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            cursor: none; background: #000;
+        }
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        .ui-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        .header { position: absolute; top: 8%; left: 50%; transform: translateX(-50%); text-align: center; }
+        .header h1 { font-size: 1.3rem; font-weight: 300; letter-spacing: 0.55em; text-transform: uppercase; color: #f8f8f8; margin-bottom: 10px; }
+        .header .subtitle { font-size: 0.58rem; letter-spacing: 0.48em; text-transform: uppercase; color: #f8f8f8; opacity: 0.38; }
+        .cursor-ring {
+            position: fixed; width: 26px; height: 26px;
+            border: 1px solid rgba(248,248,248,0.5); border-radius: 50%;
+            pointer-events: none; transform: translate(-50%,-50%); z-index: 1000;
+            transition: border-color 0.22s ease, background 0.22s ease;
+        }
+        .cursor-ring.hover { border-color: #FE4E02; background: rgba(254,78,2,0.12); }
+        .cursor-dot {
+            position: fixed; width: 3px; height: 3px; background: #f8f8f8; border-radius: 50%;
+            pointer-events: none; transform: translate(-50%,-50%); z-index: 1001; transition: background 0.2s ease;
+        }
+        .cursor-dot.hover { background: #FE4E02; }
+        .tooltip {
+            position: fixed; color: #f8f8f8;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 0.58rem; font-weight: 300; letter-spacing: 0.28em; text-transform: uppercase;
+            pointer-events: none; opacity: 0; transition: opacity 0.3s ease; z-index: 100;
+        }
+        .tooltip.visible { opacity: 1; }
+        .art-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 500; opacity: 0; visibility: hidden;
+            transition: opacity 0.5s ease, visibility 0.5s ease; overflow-y: auto; cursor: auto;
+        }
+        .art-modal.visible { opacity: 1; visibility: visible; }
+        .art-modal-content { max-width: 780px; margin: 0 auto; padding: 100px 60px 90px; }
+        .art-modal-close {
+            position: fixed; top: 32px; right: 44px;
+            font-size: 0.62rem; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-weight: 300; letter-spacing: 0.2em; text-transform: uppercase;
+            color: rgba(248,248,248,0.38); cursor: pointer; z-index: 501; transition: color 0.3s ease;
+        }
+        .art-modal-close:hover { color: #FE4E02; }
+        .art-modal-title {
+            color: #f8f8f8; font-size: 0.62rem; font-weight: 300;
+            letter-spacing: 0.55em; text-transform: uppercase;
+            margin-bottom: 65px; padding-bottom: 20px; border-bottom: 1px solid #FE4E02; opacity: 0.85;
+        }
+        .art-item { margin-bottom: 88px; }
+        .art-item img, .art-item video { width: 100%; height: auto; display: block; margin-bottom: 26px; }
+        .art-item-title { color: #f8f8f8; font-size: 0.68rem; font-weight: 400; letter-spacing: 0.35em; text-transform: uppercase; margin-bottom: 15px; }
+        .art-item-title::after { content: ''; display: block; width: 16px; height: 1px; background: #FE4E02; margin-top: 11px; }
+        .art-item-desc { color: rgba(248,248,248,0.45); font-size: 0.84rem; font-weight: 300; line-height: 1.95; letter-spacing: 0.01em; }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="float-bio"><p>Hello, I'm Jayce. My work explores how spatial environments shape human emotion, perception, and collective experience. I believe design can move beyond functionality to reveal unconscious patterns of behavior and expand emotional awareness. Through interactive and sensory systems, I investigate how environments actively influence how people feel and make decisions, combining design research, environmental psychology, and computational tools to create systems that are both analytical and experiential. Rather than producing static objects, I design dynamic environments that enable individuals to recognize and reflect on their emotional states and relationships to space.</p></div>
+    <div class="ui-overlay">
+        <div class="header">
+            <h1>Jayce Kim</h1>
+            <p class="subtitle">Design Portfolio</p>
+        </div>
+    </div>
+
+    <div class="art-modal" id="artModal">
+        <div class="art-modal-close" id="artModalClose">Close</div>
+        <div class="art-modal-content">
+            <h2 class="art-modal-title">Art</h2>
+            <div class="art-item">
+                <img src="pic/Wishes.jpg" alt="Wishes">
+                <h3 class="art-item-title">Wishes</h3>
+                <p class="art-item-desc">Inspired by gun-related tragedies, this piece imagines a world where firearms become harmless—combining the imagery of bullets falling to the ground with the ritual of lighting candles as a collective prayer for peace.</p>
+            </div>
+            <div class="art-item">
+                <img src="pic/Misty.jpg" alt="Misty">
+                <h3 class="art-item-title">Misty</h3>
+                <p class="art-item-desc">This piece invites viewers to walk into the fog toward an elusive light, exploring how perfect communication may be impossible yet encouraging us to recognize each person as a unique world and look at one another without judgment.</p>
+            </div>
+            <div class="art-item">
+                <img src="pic/Empower.jpg" alt="Empower">
+                <h3 class="art-item-title">Empower</h3>
+                <p class="art-item-desc">This piece examines how modern individuals unknowingly diminish themselves, prompting reflection on what it truly takes to reclaim one's self-esteem.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="art-modal" id="installationModal">
+        <div class="art-modal-close" id="installationModalClose">Close</div>
+        <div class="art-modal-content">
+            <h2 class="art-modal-title">Interactive Installation</h2>
+            <div class="art-item">
+                <img src="pic/Tension_of_Society.jpg" alt="Tension of Society">
+                <h3 class="art-item-title">Tension of Society</h3>
+                <p class="art-item-desc">This installation explores emotional memory—how the brain ties experiences to emotions through the connection between the hippocampus and amygdala. Using sound as a trigger for recall, the piece plays audio from Korean social tragedies such as the Sewol ferry sinking and the Daegu subway fire. As viewers listen with limited vision, a heartbeat sensor tracks their physiological response; when their heart rate crosses a threshold, the cube illuminates LED strips, creating a cumulative visual record of collective emotional resonance.</p>
+            </div>
+            <div class="art-item">
+                <img src="pic/Eternal_Promise.jpg" alt="Eternal Promise">
+                <h3 class="art-item-title">Eternal Promise</h3>
+                <p class="art-item-desc">Using sensor technology, this interactive installation dissolves video imagery into particle-like atoms as viewers approach, then returns to scenes of nature when they step away—evoking the eternal cycle of matter in the universe. The piece reflects on how our loved ones, though no longer in their original form, continue to exist as atoms woven into the air we breathe, the trees we see, and the stars above, offering comfort that the bonds we share are never truly broken and that love persists beyond physical existence.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="art-modal" id="techModal">
+        <div class="art-modal-close" id="techModalClose">Close</div>
+        <div class="art-modal-content">
+            <h2 class="art-modal-title">Technology</h2>
+            <div class="art-item">
+                <img src="pic/I_in_You.jpg" alt="I in You">
+                <h3 class="art-item-title">I in You</h3>
+                <p class="art-item-desc">This piece captures the moment when observation and being observed dissolve the boundaries between self and other. It reflects on how we are constantly shaped by the people we meet and experiences we encounter—absorbing diverse perspectives, values, and behaviors over time. The work invites us to see the self not as fixed, but as a fluid composite formed within a dynamic network of relationships, loves, and shared experiences.</p>
+            </div>
+            <div class="art-item">
+                <video src="pic/Breath_Spirit.mp4" controls playsinline></video>
+                <h3 class="art-item-title">Breath Spirit</h3>
+                <p class="art-item-desc">Breath Spirit helps you build healthy breathing habits through guided pattern training, personalized meditation reminders, and progress tracking. By analyzing your breathing data, it predicts health trends and offers tailored recommendations—helping you reflect on your progress and develop a sustainable practice uniquely suited to you.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="cursor-ring" id="cursorRing"></div>
+    <div class="cursor-dot"  id="cursorDot"></div>
+    <div class="tooltip"     id="tooltip"></div>
+
+    <script>
+// ── Three.js ─────────────────────────────────────────────────────────────────
+let scene, camera, renderer, raycaster, mouse;
+let mainOrbs = [], decoOrbs = [], hoveredOrb = null;
+
+const cursorRing = document.getElementById('cursorRing');
+const cursorDot  = document.getElementById('cursorDot');
+const tooltip    = document.getElementById('tooltip');
+let mX = innerWidth/2, mY = innerHeight/2;
+let rX = mX, rY = mY, dX = mX, dY = mY;
+
+const projects = [
+    { name:'Art',                      id:'art'                     },
+    { name:'Interactive Installation', id:'interactive-installation' },
+    { name:'Technology',               id:'technology'               }
+];
+
+// Star twinkle shader
+const VERT = `
+attribute float aSize;
+attribute float aPhase;
+uniform   float uTime;
+varying   float vAlpha;
+void main(){
+    vAlpha = 0.3 + 0.7 * abs(sin(uTime * 1.1 + aPhase));
+    vec4 mv = modelViewMatrix * vec4(position,1.0);
+    gl_PointSize = aSize * (260.0 / -mv.z);
+    gl_Position  = projectionMatrix * mv;
+}`;
+const FRAG = `
+varying float vAlpha;
+void main(){
+    vec2 uv = gl_PointCoord - 0.5;
+    float d = length(uv);
+    if(d > 0.5) discard;
+    float a = smoothstep(0.5,0.05,d) * vAlpha;
+    gl_FragColor = vec4(0.97,0.97,0.97,a);
+}`;
+
+init(); animate();
+
+// Cage alphaMap: horizontal bands so the sphere looks like a lantern
+function generateTexture(){
+    const c = document.createElement('canvas');
+    c.width = 2; c.height = 2;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 1, 2, 1);
+    return c;
+}
+
+function init(){
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+    camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 200);
+    camera.position.set(0, 0, 18);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    raycaster = new THREE.Raycaster();
+    mouse     = new THREE.Vector2();
+    scene.add(new THREE.AmbientLight(0x111111, 1));
+
+    buildStarField();
+    buildDecoOrbs();
+    buildMainOrbs();
+
+    window.addEventListener('resize',    onResize);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('click',     onClick);
+}
+
+// Background star field
+function buildStarField(){
+    const N = 1800;
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(N*3), sz = new Float32Array(N), ph = new Float32Array(N);
+    for(let i=0;i<N;i++){
+        pos[i*3]   = (Math.random()-0.5)*130;
+        pos[i*3+1] = (Math.random()-0.5)*80;
+        pos[i*3+2] = -12 - Math.random()*45;
+        sz[i] = 0.4 + Math.random()*1.7;
+        ph[i] = Math.random()*Math.PI*2;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+    geo.setAttribute('aSize',    new THREE.BufferAttribute(sz,1));
+    geo.setAttribute('aPhase',   new THREE.BufferAttribute(ph,1));
+    const mat = new THREE.ShaderMaterial({
+        vertexShader: VERT, fragmentShader: FRAG,
+        uniforms: { uTime:{ value:0 } },
+        transparent:true, depthWrite:false, blending: THREE.AdditiveBlending
+    });
+    const pts = new THREE.Points(geo, mat);
+    pts.userData.isBg = true;
+    scene.add(pts);
+}
+
+// ── PointLight lantern orb (three.js PointLight ShadowMap pattern) ────────────
+function makeOrb(r, baseIntensity){
+    const g = new THREE.Group();
+
+    // Real point light — illuminates the cage from inside
+    const light = new THREE.PointLight(0xFE4E02, baseIntensity, r * 16, 2);
+    light.castShadow = true;
+    light.shadow.bias = -0.005;
+    light.shadow.mapSize.width = 128;
+    light.shadow.radius = 10;
+    g.add(light);
+
+    // Bright solid core
+    const coreGeo = new THREE.SphereGeometry(r * 0.28, 12, 6);
+    const coreMat = new THREE.MeshBasicMaterial({ color: 0xFE4E02 });
+    coreMat.color.multiplyScalar(baseIntensity);   // bloom-style bright core
+    g.add(new THREE.Mesh(coreGeo, coreMat));
+
+    // Cage / lantern shell — alphaMap creates visible 3D bands lit from inside
+    const tex = new THREE.CanvasTexture(generateTexture());
+    tex.magFilter = THREE.NearestFilter;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(1, 4.5);
+    const cageMat = new THREE.MeshPhongMaterial({
+        color: 0xFE4E02, side: THREE.DoubleSide,
+        alphaMap: tex, alphaTest: 0.5
+    });
+    const cage = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 8), cageMat);
+    cage.castShadow = true;
+    cage.receiveShadow = true;
+    g.add(cage);
+
+    // Soft outer halo (additive)
+    const halo = new THREE.Mesh(
+        new THREE.SphereGeometry(r * 2.5, 16, 16),
+        new THREE.MeshBasicMaterial({
+            color: 0xFE4E02, transparent:true, opacity:0.055,
+            depthWrite:false, blending: THREE.AdditiveBlending
+        })
+    );
+    g.add(halo);
+
+    g.userData.light = light;
+    g.userData.cage  = cage;
+    g.userData.halo  = halo;
+    g.userData.baseIntensity = baseIntensity;
+    return g;
+}
+
+function buildDecoOrbs(){
+    [
+        {p:[-8.5, 3.2,-4], r:0.22,spd:0.55,amp:0.22,ph:0.4,int:4},
+        {p:[ 7.5,-2.2,-3], r:0.16,spd:0.70,amp:0.18,ph:1.1,int:3},
+        {p:[-5.0,-3.5,-2], r:0.19,spd:0.60,amp:0.28,ph:2.0,int:3},
+        {p:[ 6.2, 4.1,-5], r:0.28,spd:0.45,amp:0.32,ph:0.7,int:5},
+        {p:[ 0.3, 5.5,-6], r:0.13,spd:0.85,amp:0.20,ph:1.6,int:2},
+        {p:[-9.0,-1.2,-5], r:0.18,spd:0.62,amp:0.26,ph:3.1,int:3},
+        {p:[ 9.2, 1.4,-4], r:0.14,spd:0.78,amp:0.22,ph:0.5,int:2},
+        {p:[-3.2, 5.8,-4], r:0.11,spd:1.05,amp:0.14,ph:2.4,int:2},
+        {p:[ 3.8,-4.8,-3], r:0.13,spd:0.88,amp:0.19,ph:0.9,int:2},
+        {p:[-6.5, 0.8,-1], r:0.09,spd:1.15,amp:0.12,ph:3.7,int:2},
+        {p:[ 4.5, 3.2,-2], r:0.11,spd:0.92,amp:0.17,ph:2.1,int:2},
+        {p:[-2.0,-5.2,-4], r:0.16,spd:0.68,amp:0.23,ph:0.6,int:3},
+        {p:[ 8.5,-3.8,-5], r:0.20,spd:0.52,amp:0.30,ph:1.3,int:4},
+        {p:[-7.5,-4.5,-6], r:0.25,spd:0.46,amp:0.34,ph:2.7,int:5},
+        {p:[ 2.5, 6.2,-7], r:0.18,spd:0.58,amp:0.28,ph:0.2,int:3}
+    ].forEach(c=>{
+        const orb = makeOrb(c.r, c.int);
+        orb.position.set(...c.p);
+        Object.assign(orb.userData, {isClickable:false, baseY:c.p[1], floatSpeed:c.spd, floatAmp:c.amp, floatPhase:c.ph});
+        scene.add(orb); decoOrbs.push(orb);
+    });
+}
+
+function buildMainOrbs(){
+    [
+        {p:[-4.5, 0.6, 2.5], r:0.90, pi:0, spd:0.52, amp:0.22, ph:0.0, int:8},
+        {p:[ 1.5, 1.8, 1.5], r:1.05, pi:1, spd:0.47, amp:0.28, ph:1.4, int:10},
+        {p:[ 5.5,-1.0, 2.5], r:0.85, pi:2, spd:0.56, amp:0.20, ph:2.8, int:7}
+    ].forEach(c=>{
+        const orb = makeOrb(c.r, c.int);
+        orb.position.set(...c.p);
+        Object.assign(orb.userData, {
+            isClickable:true, projectIndex:c.pi,
+            projectName:projects[c.pi].name, projectId:projects[c.pi].id,
+            baseY:c.p[1], floatSpeed:c.spd, floatAmp:c.amp, floatPhase:c.ph
+        });
+        scene.add(orb); mainOrbs.push(orb);
+    });
+}
+
+function onResize(){
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+}
+function onMouseMove(e){
+    mX = e.clientX; mY = e.clientY;
+    mouse.x =  (e.clientX/innerWidth)*2-1;
+    mouse.y = -(e.clientY/innerHeight)*2+1;
+}
+
+const artModal          = document.getElementById('artModal');
+const installationModal = document.getElementById('installationModal');
+const techModal         = document.getElementById('techModal');
+function closeModal(el){ el.classList.remove('visible'); }
+document.getElementById('artModalClose').onclick          = ()=>closeModal(artModal);
+document.getElementById('installationModalClose').onclick = ()=>closeModal(installationModal);
+document.getElementById('techModalClose').onclick         = ()=>closeModal(techModal);
+artModal.addEventListener('click',          e=>{ if(e.target===artModal)          closeModal(artModal); });
+installationModal.addEventListener('click', e=>{ if(e.target===installationModal) closeModal(installationModal); });
+techModal.addEventListener('click',         e=>{ if(e.target===techModal)         closeModal(techModal); });
+
+function onClick(){
+    if(!hoveredOrb || !hoveredOrb.userData.isClickable) return;
+    const id = hoveredOrb.userData.projectId;
+    if(id==='art')                           artModal.classList.add('visible');
+    else if(id==='interactive-installation') installationModal.classList.add('visible');
+    else if(id==='technology')               techModal.classList.add('visible');
+}
+
+function updateCursor(){
+    rX += (mX-rX)*0.09; rY += (mY-rY)*0.09;
+    cursorRing.style.left = rX+'px'; cursorRing.style.top = rY+'px';
+    dX += (mX-dX)*0.55; dY += (mY-dY)*0.55;
+    cursorDot.style.left  = dX+'px'; cursorDot.style.top  = dY+'px';
+}
+
+function pulseOrb(orb, t){
+    const {baseY,floatSpeed,floatAmp,floatPhase,baseIntensity,light,cage,halo} = orb.userData;
+    // Float
+    orb.position.y = baseY + Math.sin(t*floatSpeed+floatPhase)*floatAmp;
+    // Dim / brighten light — mysterious flickering
+    const pulse = 0.5 + 0.5*Math.sin(t*floatSpeed*1.8+floatPhase);
+    if(light) light.intensity = baseIntensity * (0.55 + 0.45*pulse);
+    // Spin cage so it clearly looks 3D
+    if(cage){ cage.rotation.y = t*floatSpeed*0.55; cage.rotation.x = t*floatSpeed*0.32; }
+    // Breathe halo
+    if(halo) halo.material.opacity = 0.03 + 0.04*pulse;
+}
+
+function animate(){
+    requestAnimationFrame(animate);
+    const t = performance.now()*0.001;
+
+    scene.traverse(o=>{ if(o.isPoints && o.userData.isBg) o.material.uniforms.uTime.value = t; });
+
+    mainOrbs.forEach(orb=>pulseOrb(orb,t));
+    decoOrbs.forEach(orb=>pulseOrb(orb,t));
+
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(mainOrbs, true);
+
+    if(hoveredOrb){
+        hoveredOrb.scale.set(1,1,1);
+        cursorRing.classList.remove('hover');
+        cursorDot.classList.remove('hover');
+        tooltip.classList.remove('visible');
+        hoveredOrb = null;
+    }
+    if(hits.length>0){
+        let obj = hits[0].object;
+        while(obj.parent && !obj.userData.isClickable) obj = obj.parent;
+        if(obj.userData.isClickable){
+            hoveredOrb = obj;
+            hoveredOrb.scale.set(1.1,1.1,1.1);
+            cursorRing.classList.add('hover');
+            cursorDot.classList.add('hover');
+            tooltip.textContent = hoveredOrb.userData.projectName;
+            tooltip.style.left  = (mX+22)+'px';
+            tooltip.style.top   = (mY-8)+'px';
+            tooltip.classList.add('visible');
+        }
+    }
+
+    updateCursor();
+    renderer.render(scene, camera);
+}
+</script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            width: 100vw; height: 100vh; overflow: hidden;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            cursor: none; background: #000;
+        }
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        .ui-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        .header { position: absolute; top: 8%; left: 50%; transform: translateX(-50%); text-align: center; }
+        .header h1 { font-size: 1.3rem; font-weight: 300; letter-spacing: 0.55em; text-transform: uppercase; color: #f8f8f8; margin-bottom: 10px; }
+        .header .subtitle { font-size: 0.58rem; letter-spacing: 0.48em; text-transform: uppercase; color: #f8f8f8; opacity: 0.38; }
+        .cursor-ring {
+            position: fixed; width: 26px; height: 26px;
+            border: 1px solid rgba(248,248,248,0.5); border-radius: 50%;
+            pointer-events: none; transform: translate(-50%,-50%); z-index: 1000;
+            transition: border-color 0.22s ease, background 0.22s ease;
+        }
+        .cursor-ring.hover { border-color: #FE4E02; background: rgba(254,78,2,0.12); }
+        .cursor-dot {
+            position: fixed; width: 3px; height: 3px; background: #f8f8f8; border-radius: 50%;
+            pointer-events: none; transform: translate(-50%,-50%); z-index: 1001; transition: background 0.2s ease;
+        }
+        .cursor-dot.hover { background: #FE4E02; }
+        .tooltip {
+            position: fixed; color: #f8f8f8;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 0.58rem; font-weight: 300; letter-spacing: 0.28em; text-transform: uppercase;
+            pointer-events: none; opacity: 0; transition: opacity 0.3s ease; z-index: 100;
+        }
+        .tooltip.visible { opacity: 1; }
+        .art-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 500; opacity: 0; visibility: hidden;
+            transition: opacity 0.5s ease, visibility 0.5s ease; overflow-y: auto; cursor: auto;
+        }
+        .art-modal.visible { opacity: 1; visibility: visible; }
+        .art-modal-content { max-width: 780px; margin: 0 auto; padding: 100px 60px 90px; }
+        .art-modal-close {
+            position: fixed; top: 32px; right: 44px;
+            font-size: 0.62rem; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-weight: 300; letter-spacing: 0.2em; text-transform: uppercase;
+            color: rgba(248,248,248,0.38); cursor: pointer; z-index: 501; transition: color 0.3s ease;
+        }
+        .art-modal-close:hover { color: #FE4E02; }
+        .art-modal-title {
+            color: #f8f8f8; font-size: 0.62rem; font-weight: 300;
+            letter-spacing: 0.55em; text-transform: uppercase;
+            margin-bottom: 65px; padding-bottom: 20px; border-bottom: 1px solid #FE4E02; opacity: 0.85;
+        }
+        .art-item { margin-bottom: 88px; }
+        .art-item img, .art-item video { width: 100%; height: auto; display: block; margin-bottom: 26px; }
+        .art-item-title { color: #f8f8f8; font-size: 0.68rem; font-weight: 400; letter-spacing: 0.35em; text-transform: uppercase; margin-bottom: 15px; }
+        .art-item-title::after { content: ''; display: block; width: 16px; height: 1px; background: #FE4E02; margin-top: 11px; }
+        .art-item-desc { color: rgba(248,248,248,0.45); font-size: 0.84rem; font-weight: 300; line-height: 1.95; letter-spacing: 0.01em; }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="float-bio"><p>Hello, I'm Jayce. My work explores how spatial environments shape human emotion, perception, and collective experience. I believe design can move beyond functionality to reveal unconscious patterns of behavior and expand emotional awareness. Through interactive and sensory systems, I investigate how environments actively influence how people feel and make decisions, combining design research, environmental psychology, and computational tools to create systems that are both analytical and experiential. Rather than producing static objects, I design dynamic environments that enable individuals to recognize and reflect on their emotional states and relationships to space.</p></div>
+    <div class="ui-overlay">
+        <div class="header">
+            <h1>Jayce Kim</h1>
+            <p class="subtitle">Design Portfolio</p>
+        </div>
+    </div>
+
+    <div class="art-modal" id="artModal">
+        <div class="art-modal-close" id="artModalClose">Close</div>
+        <div class="art-modal-content">
+            <h2 class="art-modal-title">Art</h2>
+            <div class="art-item">
+                <img src="pic/Wishes.jpg" alt="Wishes">
+                <h3 class="art-item-title">Wishes</h3>
+                <p class="art-item-desc">Inspired by gun-related tragedies, this piece imagines a world where firearms become harmless—combining the imagery of bullets falling to the ground with the ritual of lighting candles as a collective prayer for peace.</p>
+            </div>
+            <div class="art-item">
+                <img src="pic/Misty.jpg" alt="Misty">
+                <h3 class="art-item-title">Misty</h3>
+                <p class="art-item-desc">This piece invites viewers to walk into the fog toward an elusive light, exploring how perfect communication may be impossible yet encouraging us to recognize each person as a unique world and look at one another without judgment.</p>
+            </div>
+            <div class="art-item">
+                <img src="pic/Empower.jpg" alt="Empower">
+                <h3 class="art-item-title">Empower</h3>
+                <p class="art-item-desc">This piece examines how modern individuals unknowingly diminish themselves, prompting reflection on what it truly takes to reclaim one's self-esteem.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="art-modal" id="installationModal">
+        <div class="art-modal-close" id="installationModalClose">Close</div>
+        <div class="art-modal-content">
+            <h2 class="art-modal-title">Interactive Installation</h2>
+            <div class="art-item">
+                <img src="pic/Tension_of_Society.jpg" alt="Tension of Society">
+                <h3 class="art-item-title">Tension of Society</h3>
+                <p class="art-item-desc">This installation explores emotional memory—how the brain ties experiences to emotions through the connection between the hippocampus and amygdala. Using sound as a trigger for recall, the piece plays audio from Korean social tragedies such as the Sewol ferry sinking and the Daegu subway fire. As viewers listen with limited vision, a heartbeat sensor tracks their physiological response; when their heart rate crosses a threshold, the cube illuminates LED strips, creating a cumulative visual record of collective emotional resonance.</p>
+            </div>
+            <div class="art-item">
+                <img src="pic/Eternal_Promise.jpg" alt="Eternal Promise">
+                <h3 class="art-item-title">Eternal Promise</h3>
+                <p class="art-item-desc">Using sensor technology, this interactive installation dissolves video imagery into particle-like atoms as viewers approach, then returns to scenes of nature when they step away—evoking the eternal cycle of matter in the universe. The piece reflects on how our loved ones, though no longer in their original form, continue to exist as atoms woven into the air we breathe, the trees we see, and the stars above, offering comfort that the bonds we share are never truly broken and that love persists beyond physical existence.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="art-modal" id="techModal">
+        <div class="art-modal-close" id="techModalClose">Close</div>
+        <div class="art-modal-content">
+            <h2 class="art-modal-title">Technology</h2>
+            <div class="art-item">
+                <img src="pic/I_in_You.jpg" alt="I in You">
+                <h3 class="art-item-title">I in You</h3>
+                <p class="art-item-desc">This piece captures the moment when observation and being observed dissolve the boundaries between self and other. It reflects on how we are constantly shaped by the people we meet and experiences we encounter—absorbing diverse perspectives, values, and behaviors over time. The work invites us to see the self not as fixed, but as a fluid composite formed within a dynamic network of relationships, loves, and shared experiences.</p>
+            </div>
+            <div class="art-item">
+                <video src="pic/Breath_Spirit.mp4" controls playsinline></video>
+                <h3 class="art-item-title">Breath Spirit</h3>
+                <p class="art-item-desc">Breath Spirit helps you build healthy breathing habits through guided pattern training, personalized meditation reminders, and progress tracking. By analyzing your breathing data, it predicts health trends and offers tailored recommendations—helping you reflect on your progress and develop a sustainable practice uniquely suited to you.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="cursor-ring" id="cursorRing"></div>
+    <div class="cursor-dot"  id="cursorDot"></div>
+    <div class="tooltip"     id="tooltip"></div>
+
+    <script>
+// ── Three.js star / planet scene ─────────────────────────────────────────────
+let scene, camera, renderer, raycaster, mouse;
+let mainOrbs = [], decoOrbs = [], hoveredOrb = null;
+
+const cursorRing = document.getElementById('cursorRing');
+const cursorDot  = document.getElementById('cursorDot');
+const tooltip    = document.getElementById('tooltip');
+let mX = innerWidth/2, mY = innerHeight/2;
+let rX = mX, rY = mY, dX = mX, dY = mY;
+
+const COL_ORANGE = new THREE.Color(0xFE4E02);
+
+const projects = [
+    { name:'Art',                      id:'art'                      },
+    { name:'Interactive Installation', id:'interactive-installation'  },
+    { name:'Technology',               id:'technology'                }
+];
+
+// Per-particle twinkle shader
+const VERT = `
+attribute float aSize;
+attribute float aPhase;
+uniform   float uTime;
+varying   float vAlpha;
+void main(){
+    vAlpha = 0.3 + 0.7 * abs(sin(uTime * 1.1 + aPhase));
+    vec4 mv = modelViewMatrix * vec4(position,1.0);
+    gl_PointSize = aSize * (260.0 / -mv.z);
+    gl_Position  = projectionMatrix * mv;
+}`;
+const FRAG = `
+varying float vAlpha;
+void main(){
+    vec2 uv = gl_PointCoord - 0.5;
+    float d  = length(uv);
+    if(d > 0.5) discard;
+    float a = smoothstep(0.5,0.05,d) * vAlpha;
+    gl_FragColor = vec4(0.97,0.97,0.97,a);
+}`;
+
+init(); animate();
+
+function init(){
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+    camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 200);
+    camera.position.set(0, 0, 18);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    raycaster = new THREE.Raycaster();
+    mouse = new THREE.Vector2();
+
+    scene.add(new THREE.AmbientLight(0x111111, 1));
+
+    buildStarField();
+    buildDecoOrbs();
+    buildMainOrbs();
+
+    window.addEventListener('resize',    onResize);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('click',     onClick);
+}
+
+// Background star field — shader, per-particle twinkle
+function buildStarField(){
+    const N = 1800;
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(N*3), sz = new Float32Array(N), ph = new Float32Array(N);
+    for(let i=0;i<N;i++){
+        pos[i*3]   = (Math.random()-0.5)*130;
+        pos[i*3+1] = (Math.random()-0.5)*80;
+        pos[i*3+2] = -12 - Math.random()*45;
+        sz[i]  = 0.4 + Math.random()*1.7;
+        ph[i]  = Math.random()*Math.PI*2;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+    geo.setAttribute('aSize',    new THREE.BufferAttribute(sz,1));
+    geo.setAttribute('aPhase',   new THREE.BufferAttribute(ph,1));
+    const mat = new THREE.ShaderMaterial({
+        vertexShader: VERT, fragmentShader: FRAG,
+        uniforms: { uTime:{ value:0 } },
+        transparent:true, depthWrite:false,
+        blending: THREE.AdditiveBlending
+    });
+    const pts = new THREE.Points(geo, mat);
+    pts.userData.isBg = true;
+    scene.add(pts);
+}
+
+// Layered additive glow orb helper
+function makeOrb(r, coreOp, emStr){
+    const g = new THREE.Group();
+    [{s:1.0,op:coreOp,em:emStr},{s:1.7,op:0.13,em:0},{s:3.0,op:0.05,em:0},{s:5.5,op:0.016,em:0}]
+    .forEach((l,i)=>{
+        const mesh = new THREE.Mesh(
+            new THREE.SphereGeometry(r*l.s, i===0?32:16, i===0?32:16),
+            new THREE.MeshStandardMaterial({
+                color: COL_ORANGE, emissive: COL_ORANGE,
+                emissiveIntensity: l.em, transparent:true, opacity: l.op,
+                depthWrite:false, blending: THREE.AdditiveBlending
+            })
+        );
+        mesh.userData.li = i; mesh.userData.bo = l.op; mesh.userData.be = l.em;
+        g.add(mesh);
+    });
+    g.add(new THREE.PointLight(0xFE4E02, 1.2, 10, 2));
+    return g;
+}
+
+// Decorative background orbs
+function buildDecoOrbs(){
+    [
+        {p:[-8.5, 3.2,-4], r:0.22,spd:0.55,amp:0.22,ph:0.4},
+        {p:[ 7.5,-2.2,-3], r:0.16,spd:0.70,amp:0.18,ph:1.1},
+        {p:[-5.0,-3.5,-2], r:0.19,spd:0.60,amp:0.28,ph:2.0},
+        {p:[ 6.2, 4.1,-5], r:0.28,spd:0.45,amp:0.32,ph:0.7},
+        {p:[ 0.3, 5.5,-6], r:0.13,spd:0.85,amp:0.20,ph:1.6},
+        {p:[-9.0,-1.2,-5], r:0.18,spd:0.62,amp:0.26,ph:3.1},
+        {p:[ 9.2, 1.4,-4], r:0.14,spd:0.78,amp:0.22,ph:0.5},
+        {p:[-3.2, 5.8,-4], r:0.11,spd:1.05,amp:0.14,ph:2.4},
+        {p:[ 3.8,-4.8,-3], r:0.13,spd:0.88,amp:0.19,ph:0.9},
+        {p:[-6.5, 0.8,-1], r:0.09,spd:1.15,amp:0.12,ph:3.7},
+        {p:[ 4.5, 3.2,-2], r:0.11,spd:0.92,amp:0.17,ph:2.1},
+        {p:[-2.0,-5.2,-4], r:0.16,spd:0.68,amp:0.23,ph:0.6},
+        {p:[ 8.5,-3.8,-5], r:0.20,spd:0.52,amp:0.30,ph:1.3},
+        {p:[-7.5,-4.5,-6], r:0.25,spd:0.46,amp:0.34,ph:2.7},
+        {p:[ 2.5, 6.2,-7], r:0.18,spd:0.58,amp:0.28,ph:0.2}
+    ].forEach(c=>{
+        const orb = makeOrb(c.r, 0.6, 0.3);
+        orb.position.set(...c.p);
+        orb.userData = { isClickable:false, baseY:c.p[1], floatSpeed:c.spd, floatAmp:c.amp, floatPhase:c.ph };
+        scene.add(orb); decoOrbs.push(orb);
+    });
+}
+
+// 3 main clickable planet orbs
+function buildMainOrbs(){
+    [
+        {p:[-4.5, 0.6, 2.5], r:0.90, pi:0, spd:0.52, amp:0.22, ph:0.0},
+        {p:[ 1.5, 1.8, 1.5], r:1.05, pi:1, spd:0.47, amp:0.28, ph:1.4},
+        {p:[ 5.5,-1.0, 2.5], r:0.85, pi:2, spd:0.56, amp:0.20, ph:2.8}
+    ].forEach(c=>{
+        const orb = makeOrb(c.r, 0.92, 0.55);
+        orb.position.set(...c.p);
+        orb.userData = {
+            isClickable: true,
+            projectIndex: c.pi,
+            projectName:  projects[c.pi].name,
+            projectId:    projects[c.pi].id,
+            baseY: c.p[1], floatSpeed: c.spd, floatAmp: c.amp, floatPhase: c.ph
+        };
+        scene.add(orb); mainOrbs.push(orb);
+    });
+}
+
+// Events
+function onResize(){
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+}
+function onMouseMove(e){
+    mX = e.clientX; mY = e.clientY;
+    mouse.x =  (e.clientX/innerWidth )*2-1;
+    mouse.y = -(e.clientY/innerHeight)*2+1;
+}
+
+const artModal          = document.getElementById('artModal');
+const installationModal = document.getElementById('installationModal');
+const techModal         = document.getElementById('techModal');
+function closeModal(el){ el.classList.remove('visible'); }
+document.getElementById('artModalClose').onclick          = ()=>closeModal(artModal);
+document.getElementById('installationModalClose').onclick = ()=>closeModal(installationModal);
+document.getElementById('techModalClose').onclick         = ()=>closeModal(techModal);
+artModal.addEventListener('click',          e=>{ if(e.target===artModal)          closeModal(artModal); });
+installationModal.addEventListener('click', e=>{ if(e.target===installationModal) closeModal(installationModal); });
+techModal.addEventListener('click',         e=>{ if(e.target===techModal)         closeModal(techModal); });
+
+function onClick(){
+    if(!hoveredOrb || !hoveredOrb.userData.isClickable) return;
+    const id = hoveredOrb.userData.projectId;
+    if(id==='art')                       artModal.classList.add('visible');
+    else if(id==='interactive-installation') installationModal.classList.add('visible');
+    else if(id==='technology')           techModal.classList.add('visible');
+}
+
+// Cursor
+function updateCursor(){
+    rX += (mX-rX)*0.09; rY += (mY-rY)*0.09;
+    cursorRing.style.left = rX+'px'; cursorRing.style.top = rY+'px';
+    dX += (mX-dX)*0.55; dY += (mY-dY)*0.55;
+    cursorDot.style.left  = dX+'px'; cursorDot.style.top  = dY+'px';
+}
+
+// Main loop
+function animate(){
+    requestAnimationFrame(animate);
+    const t = performance.now()*0.001;
+
+    scene.traverse(o=>{ if(o.isPoints && o.userData.isBg) o.material.uniforms.uTime.value = t; });
+
+    mainOrbs.forEach(orb=>{
+        const {baseY,floatSpeed,floatAmp,floatPhase} = orb.userData;
+        orb.position.y = baseY + Math.sin(t*floatSpeed+floatPhase)*floatAmp;
+        const pulse = Math.sin(t*floatSpeed*1.8+floatPhase);
+        orb.children.forEach(ch=>{
+            if(!ch.isMesh) return;
+            const {li,bo,be} = ch.userData;
+            if(li===0){ ch.material.emissiveIntensity = be + pulse*0.28; ch.material.opacity = bo + pulse*0.06; }
+            else       { ch.material.opacity = Math.max(0, bo + pulse*0.012*(4-li)); }
+        });
+    });
+
+    decoOrbs.forEach(orb=>{
+        const {baseY,floatSpeed,floatAmp,floatPhase} = orb.userData;
+        orb.position.y = baseY + Math.sin(t*floatSpeed+floatPhase)*floatAmp;
+        const tw = Math.sin(t*floatSpeed*2.2+floatPhase);
+        orb.children.forEach(ch=>{
+            if(!ch.isMesh) return;
+            const {li,bo} = ch.userData;
+            ch.material.opacity = Math.max(0, li===0 ? bo + tw*0.32 : bo + tw*0.018);
+        });
+    });
+
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(mainOrbs, true);
+
+    if(hoveredOrb){
+        hoveredOrb.scale.set(1,1,1);
+        cursorRing.classList.remove('hover');
+        cursorDot.classList.remove('hover');
+        tooltip.classList.remove('visible');
+        hoveredOrb = null;
+    }
+    if(hits.length>0){
+        let obj = hits[0].object;
+        while(obj.parent && !obj.userData.isClickable) obj = obj.parent;
+        if(obj.userData.isClickable){
+            hoveredOrb = obj;
+            hoveredOrb.scale.set(1.1,1.1,1.1);
+            cursorRing.classList.add('hover');
+            cursorDot.classList.add('hover');
+            tooltip.textContent = hoveredOrb.userData.projectName;
+            tooltip.style.left  = (mX+22)+'px';
+            tooltip.style.top   = (mY-8)+'px';
+            tooltip.classList.add('visible');
+        }
+    }
+
+    updateCursor();
+    renderer.render(scene, camera);
+}
+    </script>
+</body>
+</html>
